@@ -2,7 +2,14 @@ defmodule ExChess.Board do
   @moduledoc """
     TODO
     - legal moves for queen
+    - legal moves for bishop
     - en passant
+    - castle
+    - stalemate
+    - mate
+    - checkmate
+    - piece_is_attacked
+    - square_is_attacked
   """
 
   defmodule Piece do
