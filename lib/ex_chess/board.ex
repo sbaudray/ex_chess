@@ -1,4 +1,10 @@
 defmodule ExChess.Board do
+  @moduledoc """
+    TODO
+    - legal moves for queen
+    - en passant
+  """
+
   defmodule Piece do
     defstruct [:color, :kind]
   end
@@ -74,6 +80,15 @@ defmodule ExChess.Board do
     IO.puts(board)
   end
 
+  def ally_on_square?(board, pos, piece) do
+    on_square = piece(board, pos)
+
+    case on_square do
+      %Piece{} -> match_color(on_square, piece)
+      _ -> false
+    end
+  end
+
   def enemy_on_square?(board, pos, piece) do
     on_square = piece(board, pos)
 
@@ -118,7 +133,7 @@ defmodule ExChess.Board do
         cond do
           out_of_bounds?(pos) -> {:halt, acc}
           enemy_on_square?(board, pos, piece) -> {:halt, [pos | acc]}
-          piece_on_square?(board, pos) -> {:halt, acc}
+          ally_on_square?(board, pos, piece) -> {:halt, acc}
           true -> {:cont, [pos | acc]}
         end
       end)
@@ -139,7 +154,7 @@ defmodule ExChess.Board do
 
       with false <- out_of_bounds?(pos),
            false <- enemy_on_square?(board, pos, piece),
-           false <- piece_on_square?(board, pos) do
+           false <- ally_on_square?(board, pos, piece) do
         {:cont, [pos | acc]}
       else
         _ -> {:halt, acc}
@@ -147,7 +162,7 @@ defmodule ExChess.Board do
     end)
   end
 
-  def legal_moves(board, %Piece{kind: :night}, {file, rank}) do
+  def legal_moves(board, %Piece{kind: :night} = piece, {file, rank}) do
     deltas =
       for x <- [2, -2], y <- [1, -1] do
         [{x, y}, {y, x}]
@@ -157,26 +172,19 @@ defmodule ExChess.Board do
     for {x, y} <- deltas,
         pos = {file + x, rank + y},
         out_of_bounds?(pos) == false,
-        piece_on_square?(board, pos) == false do
+        ally_on_square?(board, pos, piece) == false do
       pos
     end
   end
 
-  def legal_moves(board, %Piece{kind: :king}, {file, rank}) do
+  def legal_moves(board, %Piece{kind: :king} = piece, {file, rank}) do
     deltas = [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]
 
     for {x, y} <- deltas,
         pos = {file + x, rank + y},
         out_of_bounds?(pos) == false,
-        piece_on_square?(board, pos) == false do
+        ally_on_square?(board, pos, piece) == false do
       pos
-    end
-  end
-
-  def piece_on_square?(board, pos) do
-    case Map.get(board, key(pos)) do
-      nil -> false
-      _ -> true
     end
   end
 
@@ -196,6 +204,7 @@ defmodule ExChess.Board do
     |> move({4, 6}, {4, 4})
     |> move({6, 0}, {5, 2})
     |> move({4, 7}, {4, 6})
+    |> move({5, 2}, {4, 4})
     |> print
   end
 end
