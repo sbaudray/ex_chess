@@ -1,8 +1,7 @@
 defmodule ExChess.Board do
   @moduledoc """
     TODO
-    - legal moves for queen
-    - legal moves for bishop
+    - pawn capture
     - en passant
     - castle
     - stalemate
@@ -110,44 +109,81 @@ defmodule ExChess.Board do
   def match_color(_, _), do: false
 
   def out_of_bounds?({file, rank}) do
+    file > 7 || rank > 7 || file < 0 || rank < 0
+  end
+
+  defp linear_moves(board, pos, delta) do
+    piece = piece(board, pos)
+
+    linear_moves(board, piece, pos, delta)
+  end
+
+  defp linear_moves(board, piece, {file, rank}, {dx, dy} = delta) do
+    next_square = {file + dx, rank + dy}
+
     cond do
-      file > 7 -> true
-      rank > 7 -> true
-      file < 0 -> true
-      rank < 0 -> true
-      true -> false
+      out_of_bounds?(next_square) ->
+        []
+
+      ally_on_square?(board, next_square, piece) ->
+        []
+
+      enemy_on_square?(board, next_square, piece) ->
+        [next_square]
+
+      true ->
+        [next_square | linear_moves(board, piece, next_square, delta)]
     end
   end
 
   def legal_moves(board, pos) do
     piece = piece(board, pos)
 
-    legal_moves(board, piece, pos)
-  end
-
-  def legal_moves(board, %Piece{kind: :rook} = piece, {file, rank}) do
-    ranges = [
-      (rank + 1)..7,
-      (rank - 1)..0,
-      (file + 1)..7,
-      (file - 1)..0
-    ]
-
-    for range <- ranges do
-      Enum.reduce_while(range, [], fn value, acc ->
-        pos = {file, value}
-
-        cond do
-          out_of_bounds?(pos) -> {:halt, acc}
-          enemy_on_square?(board, pos, piece) -> {:halt, [pos | acc]}
-          ally_on_square?(board, pos, piece) -> {:halt, acc}
-          true -> {:cont, [pos | acc]}
-        end
-      end)
+    case piece.kind do
+      :bishop -> bishop_moves(board, pos)
+      :rook -> rook_moves(board, pos)
+      :pawn -> pawn_moves(board, pos)
+      :queen -> queen_moves(board, pos)
+      :king -> king_moves(board, pos)
+      :night -> night_moves(board, pos)
     end
   end
 
-  def legal_moves(board, %Piece{kind: :pawn} = piece, {file, rank}) do
+  def rook_moves(board, pos) do
+    deltas = [
+      {0, 1},
+      {0, -1},
+      {1, 0},
+      {-1, 0}
+    ]
+
+    for delta <- deltas do
+      linear_moves(board, pos, delta)
+    end
+    |> List.flatten()
+  end
+
+  def bishop_moves(board, pos) do
+    deltas = [
+      {1, 1},
+      {1, -1},
+      {-1, 1},
+      {-1, -1}
+    ]
+
+    for delta <- deltas do
+      linear_moves(board, pos, delta)
+    end
+    |> List.flatten()
+  end
+
+  def queen_moves(board, pos) do
+    rook_moves(board, pos) ++ bishop_moves(board, pos)
+  end
+
+  def pawn_moves(board, {file, rank} = pos) do
+    piece = piece(board, pos)
+
     range =
       case {piece.color, rank} do
         {:black, 6} -> 5..4
@@ -169,12 +205,14 @@ defmodule ExChess.Board do
     end)
   end
 
-  def legal_moves(board, %Piece{kind: :night} = piece, {file, rank}) do
+  def night_moves(board, {file, rank} = pos) do
     deltas =
       for x <- [2, -2], y <- [1, -1] do
         [{x, y}, {y, x}]
       end
       |> List.flatten()
+
+    piece = piece(board, pos)
 
     for {x, y} <- deltas,
         pos = {file + x, rank + y},
@@ -184,8 +222,10 @@ defmodule ExChess.Board do
     end
   end
 
-  def legal_moves(board, %Piece{kind: :king} = piece, {file, rank}) do
+  def king_moves(board, {file, rank} = pos) do
     deltas = [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]
+
+    piece = piece(board, pos)
 
     for {x, y} <- deltas,
         pos = {file + x, rank + y},
@@ -212,6 +252,7 @@ defmodule ExChess.Board do
     |> move({6, 0}, {5, 2})
     |> move({4, 7}, {4, 6})
     |> move({5, 2}, {4, 4})
+    |> move({3, 0}, {7, 4})
     |> print
   end
 end
